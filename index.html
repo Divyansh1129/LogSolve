@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Solve Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f7;--panel:#fff;--ink:#14213d;--mute:#5d6b85;--line:#d5dce8;--easy:#1f9e8f;--med:#f2a03d;--hard:#e0504a;--accent:#3a52d9;
+--display:"Bricolage Grotesque","Trebuchet MS",sans-serif;--body:"DM Sans",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#121a2b;--panel:#1a2338;--ink:#e8edf8;--mute:#98a5c0;--line:#2b3753;--accent:#8ea0ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);
+background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;background-attachment:fixed}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 20px 80px}
+h1{font:800 clamp(2.4rem,7vw,4.4rem)/1 var(--display);letter-spacing:-.03em;margin:0}
+.sub{color:var(--mute);margin:10px 0 28px;max-width:56ch}
+.totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:24px}
+.t{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.t b{display:block;font:700 1.9rem/1.1 var(--display);font-variant-numeric:tabular-nums}
+.t span{color:var(--mute);font-size:.85rem}
+.t.e b{color:var(--easy)}.t.m b{color:var(--med)}.t.h b{color:var(--hard)}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;color:var(--mute);font:500 .9rem var(--body);padding:6px 14px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
+input{flex:1;min-width:140px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:8px 16px;font:inherit}
+.refresh{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 16px;font:500 .9rem var(--body);cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.status{color:var(--mute);font-size:.85rem;margin-bottom:12px;min-height:1.3em}
+.lane{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden}
+.row{display:grid;grid-template-columns:40px 190px 1fr 78px;gap:14px;align-items:center;width:100%;padding:12px 16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.pos{font:800 1.6rem var(--display);color:var(--mute)}
+.lane.first .pos{color:var(--med)}
+.who{display:flex;gap:10px;align-items:center;min-width:0}
+.who img{width:36px;height:36px;border-radius:50%;background:var(--line);flex:none}
+.who div{min-width:0}.who strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who small{color:var(--mute)}
+.track{height:18px;background:var(--bg);border-radius:9px;overflow:hidden;display:flex}
+.track i{display:block;height:100%;transition:width .6s}
+.track .e{background:var(--easy)}.track .m{background:var(--med)}.track .h{background:var(--hard)}
+.num{text-align:right;font:700 1.4rem var(--display);font-variant-numeric:tabular-nums}
+.num small{display:block;font:400 .72rem var(--body);color:var(--mute)}
+.more{display:none;padding:4px 16px 16px 70px;border-top:1px dashed var(--line);grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px}
+.lane.open .more{display:grid}
+.more div{padding-top:12px}.more small{color:var(--mute);display:block;font-size:.78rem}
+.more a{color:var(--accent)}
+.legend{display:flex;gap:16px;color:var(--mute);font-size:.85rem;margin:16px 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.err{color:var(--hard)}
+@media(max-width:640px){.row{grid-template-columns:28px 1fr 60px}.track{grid-column:2/4;grid-row:2}.more{padding-left:16px}}
+@media(prefers-reduced-motion:reduce){.track i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Solve Board</h1>
+  <p class="sub">Six LeetCode accounts, ranked live. Score counts easy as 1, medium as 3, hard as 6, so one hard beats a pile of easies.</p>
+  <div class="totals" id="totals"></div>
+  <div class="bar">
+    <div class="seg" id="sort" role="group" aria-label="Sort by">
+      <button data-k="score" aria-pressed="true">Score</button><button data-k="total" aria-pressed="false">Total</button>
+      <button data-k="hard" aria-pressed="false">Hard</button><button data-k="rating" aria-pressed="false">Contest</button>
+      <button data-k="streak" aria-pressed="false">Streak</button>
+    </div>
+    <input id="q" type="search" placeholder="Find a solver" aria-label="Find a solver">
+    <button class="refresh" id="refresh">Refresh</button>
+  </div>
+  <div class="status" id="status" role="status"></div>
+  <div id="list"></div>
+  <div class="legend"><span><i style="background:var(--easy)"></i>Easy</span><span><i style="background:var(--med)"></i>Medium</span><span><i style="background:var(--hard)"></i>Hard</span></div>
+</div>
+<script>
+const USERS=["Divyansh1129","om_dwivedi_0204","utkarsh_saini23","sujal_kumar00710451807","anexasvanra","rudransh_bhardwaj"];
+const W={easy:1,medium:3,hard:6};
+let data=[],sortKey="score",query="",open=new Set();
+const $=id=>document.getElementById(id);
+const score=d=>d.easy*W.easy+d.medium*W.medium+d.hard*W.hard;
+const val=d=>sortKey==="score"?score(d):sortKey==="rating"?(d.contest?d.contest.rating:0):d[sortKey]||0;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function ago(ts){const s=Date.now()/1000-ts;if(s<3600)return Math.max(1,Math.round(s/60))+" min ago";if(s<86400)return Math.round(s/3600)+" h ago";return Math.round(s/86400)+" d ago"}
+function render(){
+  const ok=data.filter(d=>d.ok);
+  const sum=k=>ok.reduce((a,d)=>a+d[k],0);
+  $("totals").innerHTML=[["Solved",sum("total"),""],["Easy",sum("easy"),"e"],["Medium",sum("medium"),"m"],["Hard",sum("hard"),"h"]]
+    .map(([l,v,c])=>`<div class="t ${c}"><b>${v}</b><span>${l}</span></div>`).join("");
+  const sorted=[...ok].sort((a,b)=>val(b)-val(a));
+  const max=Math.max(1,...sorted.map(score));
+  const rows=sorted.map((d,i)=>({d,i})).filter(({d})=>(d.username+d.name).toLowerCase().includes(query));
+  $("list").innerHTML=rows.map(({d,i})=>{
+    const s=score(d),w=k=>(d[k]*W[k]/max*100).toFixed(2);
+    const c=d.contest?`${d.contest.rating} <small>${d.contest.attended} contests, top ${(d.contest.top||0).toFixed(1)}%</small>`:"No contests";
+    return `<div class="lane ${i===0?"first":""} ${open.has(d.username)?"open":""}">
+    <button class="row" data-u="${esc(d.username)}" aria-expanded="${open.has(d.username)}">
+      <span class="pos">${i+1}</span>
+      <span class="who"><img src="${esc(d.avatar)}" alt="" loading="lazy"><div><strong>${esc(d.name)}</strong><small>@${esc(d.username)}</small></div></span>
+      <span class="track" title="${d.easy} easy, ${d.medium} medium, ${d.hard} hard"><i class="e" style="width:${w("easy")}%"></i><i class="m" style="width:${w("medium")}%"></i><i class="h" style="width:${w("hard")}%"></i></span>
+      <span class="num">${s}<small>${d.total} solved</small></span>
+    </button>
+    <div class="more">
+      <div><small>Easy / Medium / Hard</small>${d.easy} / ${d.medium} / ${d.hard}</div>
+      <div><small>Global rank</small>${d.ranking?d.ranking.toLocaleString():"Unranked"}</div>
+      <div><small>Streak</small>${d.streak} days</div>
+      <div><small>Active days (year)</small>${d.activeDays}</div>
+      <div><small>Contest rating</small>${c}</div>
+      <div><small>Last solved</small>${d.last?`<a href="https://leetcode.com/problems/${esc(d.last.slug)}" target="_blank" rel="noopener">${esc(d.last.title)}</a> ${ago(d.last.ts)}`:"Nothing yet"}</div>
+      <div><small>Profile</small><a href="https://leetcode.com/u/${esc(d.username)}/" target="_blank" rel="noopener">Open on LeetCode</a></div>
+    </div></div>`}).join("")||'<p class="status">No solver matches that search.</p>';
+  const bad=data.filter(d=>!d.ok).map(d=>d.username);
+  if(bad.length)$("status").innerHTML+=` <span class="err">Could not load: ${bad.map(esc).join(", ")}</span>`;
+}
+async function load(){
+  $("status").textContent="Loading…";
+  try{
+    const r=await fetch("/api/stats?u="+USERS.join(","));
+    if(!r.ok)throw new Error(r.status);
+    data=await r.json();
+    localStorage.setItem("solveboard",JSON.stringify({t:Date.now(),data}));
+    $("status").textContent="Updated "+new Date().toLocaleTimeString();
+  }catch(e){
+    try{const c=JSON.parse(localStorage.getItem("solveboard"));if(c){data=c.data;$("status").textContent="Offline. Showing saved data from "+new Date(c.t).toLocaleString();}}catch(_){}
+    if(!data.length)$("status").innerHTML='<span class="err">Could not reach /api/stats. Deploy on Vercel or run "vercel dev".</span>';
+  }
+  render();
+}
+$("sort").onclick=e=>{const b=e.target.closest("button");if(!b)return;sortKey=b.dataset.k;
+  document.querySelectorAll("#sort button").forEach(x=>x.setAttribute("aria-pressed",x===b));render()};
+$("q").oninput=e=>{query=e.target.value.toLowerCase().trim();render()};
+$("refresh").onclick=load;
+$("list").onclick=e=>{const b=e.target.closest(".row");if(!b)return;const u=b.dataset.u;open.has(u)?open.delete(u):open.add(u);render()};
+load();setInterval(load,300000);
+</script>
+</body>
+</html>
